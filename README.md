@@ -117,6 +117,13 @@ scripts/
 - **AppleScript** dijalankan di queue latar; menjalankannya di main thread bisa membuat aplikasi
   terlihat "not responding" saat macOS menampilkan dialog izin.
 
+## Dibuat dengan
+
+Proyek ini dikerjakan lewat **vibe coding** bersama **GLM 5.3** (Zhipu AI) sebagai asisten: ide dan
+arahan datang dari manusia, implementasi dan perbaikannya dibantu model, lalu setiap perubahan
+diverifikasi dengan `--selftest` (57 pemeriksaan), pembacaan log sistem, dan uji perilaku nyata
+sebelum dirilis.
+
 ## Lisensi
 
 [MIT](LICENSE) © 2026 Rafael Yudianto.

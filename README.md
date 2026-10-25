@@ -119,4 +119,7 @@ scripts/
 
 ## Lisensi
 
-Belum ditentukan — tambahkan berkas `LICENSE` sebelum dipublikasikan.
+[MIT](LICENSE) © 2026 Rafael Yudianto.
+
+Catatan: proyek ini implementasi mandiri. MediaRemote dimuat secara dinamis sebagai bagian dari
+sistem macOS, bukan kode pihak ketiga yang didistribusikan ulang di repo ini.

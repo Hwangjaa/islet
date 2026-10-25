@@ -40,4 +40,4 @@ tombol `<` `>` di footer.
 
 - Binary: `arm64` (Apple Silicon). Versi Intel belum disediakan.
 - sha256: `4699e1cf381a9901740d7937d26097aee014a97af5f94bb4df108b71967707fe`
-- Belum ada lisensi; sumber tersedia di repo ini.
+- Lisensi: MIT (lihat `LICENSE` di repo).

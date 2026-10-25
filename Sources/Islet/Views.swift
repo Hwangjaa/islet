@@ -9,7 +9,9 @@ struct IslandActions {
     var toggleMute: () -> Void
     var cycleModule: () -> Void
     var openSettings: () -> Void
-    var startActivity: (Int) -> Void
+    var startActivity: (Int) -> Void      // total detik
+    var pauseActivity: () -> Void
+    var resumeActivity: () -> Void
     var stopActivity: () -> Void
     var revealShelf: () -> Void
     var removeShelf: (ShelfItem) -> Void
@@ -108,19 +110,24 @@ struct IslandView: View {
     // MARK: Collapsed
 
     private var collapsed: some View {
-        // Satu baris, tiga zona, tanpa ZStack: elemen tidak mungkin bertumpuk.
-        // [konten kiri fleksibel] [spacer] [klaster status lebar tetap]
-        HStack(spacing: 0) {
+        // Tiga zona dalam satu HStack, jadi elemen tidak mungkin bertumpuk.
+        // Saat zona kiri kosong, kedua Spacer sama-sama fleksibel → klaster status duduk
+        // di tengah pill. Begitu timer/media/tangkapan muncul, klaster bergeser ke kanan
+        // dengan animasi yang sama (bukan lompat).
+        HStack(spacing: 6) {
             collapsedLeading
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .layoutPriority(1)
-            Spacer(minLength: 6)
+                .opacity(state.hasCollapsedLeading ? 1 : 0)
+            Spacer(minLength: 0)
             statusCluster
                 .fixedSize()
                 .layoutPriority(2)
+            Spacer(minLength: 0)
         }
         .padding(.horizontal, 2)
+        .animation(IslandAnim.panel, value: state.hasCollapsedLeading)
     }
 
     /// Klaster status di kanan pill: Wi-Fi, Bluetooth, baterai. Lebarnya tetap dan
@@ -656,41 +663,110 @@ struct IslandView: View {
     }
 
     private var activityView: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 5) {
             if let activity = state.activity {
                 TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let remaining = max(0, activity.startedAt.addingTimeInterval(activity.total).timeIntervalSince(context.date))
-                    let progress = activity.total > 0 ? remaining / activity.total : 0
-                    VStack(spacing: 6) {
-                        ZStack {
-                            Circle().stroke(Color.white.opacity(0.12), lineWidth: 6)
-                            Circle()
-                                .trim(from: 0, to: CGFloat(progress))
-                                .stroke(Color.orange, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                                .rotationEffect(.degrees(-90))
-                            Text(timeString(remaining))
-                                .font(.system(size: 16, weight: .semibold, design: .rounded))
-                                .foregroundStyle(.white).monospacedDigit()
+                    let remaining = activityRemaining(activity, at: context.date)
+                    VStack(spacing: 5) {
+                        digitalClock(remaining, tint: activity.isPaused ? .white.opacity(0.7) : .orange)
+                        MiniBar(progress: activity.total > 0 ? remaining / activity.total : 0,
+                                tint: .orange, width: 180)
+                        HStack(spacing: 14) {
+                            Button {
+                                activity.isPaused ? actions.resumeActivity() : actions.pauseActivity()
+                            } label: {
+                                Label(activity.isPaused ? "Lanjut" : "Jeda",
+                                      systemImage: activity.isPaused ? "play.fill" : "pause.fill")
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundStyle(.white.opacity(0.85))
+                            }
+                            .buttonStyle(.plain)
+                            Button { actions.stopActivity() } label: {
+                                Label("Stop", systemImage: "stop.fill")
+                                    .font(.system(size: 10.5, weight: .medium))
+                                    .foregroundStyle(.orange)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .frame(width: 62, height: 62)
-                        Text("Hitung waktu \(activity.label)")
-                            .font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6))
-                        Button("Stop") { actions.stopActivity() }
-                            .buttonStyle(.plain).font(.system(size: 10.5)).foregroundStyle(.orange)
                     }
                 }
             } else {
-                Image(systemName: "timer").foregroundStyle(.white.opacity(0.5))
-                Text("Belum ada hitung waktu aktif.")
-                    .font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.6))
-                HStack(spacing: 10) {
-                    ForEach([1, 5, 25], id: \.self) { minutes in
-                        Button("\(minutes) menit") { actions.startActivity(minutes) }
-                            .buttonStyle(.plain).font(.system(size: 10.5)).foregroundStyle(.white.opacity(0.8))
-                    }
+                // Jam digital: tiga pasang digit + panah, lalu tombol Mulai.
+                HStack(alignment: .top, spacing: 6) {
+                    draftColumn(.hours, value: state.timerDraft.hours, label: "jam")
+                    clockColon
+                    draftColumn(.minutes, value: state.timerDraft.minutes, label: "mnt")
+                    clockColon
+                    draftColumn(.seconds, value: state.timerDraft.seconds, label: "dtk")
                 }
+                Button {
+                    actions.startActivity(state.timerDraft.totalSeconds)
+                } label: {
+                    Label("Mulai", systemImage: "play.fill")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(state.timerDraft.isZero ? .white.opacity(0.3) : .black)
+                        .padding(.horizontal, 14).padding(.vertical, 5)
+                        .background(Capsule().fill(state.timerDraft.isZero
+                                                   ? Color.white.opacity(0.10) : Color.orange))
+                }
+                .buttonStyle(.plain)
+                .disabled(state.timerDraft.isZero)
             }
         }
+    }
+
+    /// Jam digital besar dengan pemisah titik dua.
+    private func digitalClock(_ seconds: TimeInterval, tint: Color) -> some View {
+        let total = Int(max(0, seconds).rounded(.up))
+        let h = total / 3600, m = (total % 3600) / 60, s = total % 60
+        return HStack(spacing: 2) {
+            Text(String(format: "%02d", h)).monospacedDigit()
+            Text(":").opacity(0.45)
+            Text(String(format: "%02d", m)).monospacedDigit()
+            Text(":").opacity(0.45)
+            Text(String(format: "%02d", s)).monospacedDigit()
+        }
+        .font(.system(size: 22, weight: .semibold, design: .rounded))
+        .foregroundStyle(tint)
+    }
+
+    /// Satu kelompok digit pada editor: panah naik, angka, panah turun, label satuan.
+    private func draftColumn(_ unit: TimerDraft.Unit, value: Int, label: String) -> some View {
+        VStack(spacing: 1) {
+            bumpButton("chevron.up", unit: unit, delta: 1)
+            Text(String(format: "%02d", value))
+                .font(.system(size: 22, weight: .semibold, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(.white)
+                .frame(width: 30)
+            bumpButton("chevron.down", unit: unit, delta: -1)
+            Text(label).font(.system(size: 8.5)).foregroundStyle(.white.opacity(0.45))
+        }
+    }
+
+    private func bumpButton(_ symbol: String, unit: TimerDraft.Unit, delta: Int) -> some View {
+        Button {
+            state.timerDraft.bump(unit, by: delta)
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(.white.opacity(0.55))
+                .frame(width: 22, height: 11)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var clockColon: some View {
+        Text(":").font(.system(size: 20, weight: .semibold, design: .rounded))
+            .foregroundStyle(.white.opacity(0.35))
+            .padding(.top, 13)
+    }
+
+    /// Sisa waktu timer, menghormati keadaan jeda.
+    private func activityRemaining(_ activity: Activity, at date: Date) -> TimeInterval {
+        if let frozen = activity.pausedRemaining { return max(0, frozen) }
+        return max(0, activity.startedAt.addingTimeInterval(activity.total).timeIntervalSince(date))
     }
 
     private var deviceView: some View { EmptyView() }

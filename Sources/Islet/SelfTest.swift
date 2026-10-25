@@ -1,6 +1,7 @@
 import AppKit
 import CoreWLAN
 import Foundation
+import SwiftUI
 
 // Pengujian otomatis tanpa antarmuka: dijalankan dengan `Islet --selftest`.
 // Mengembalikan jumlah kegagalan sebagai exit code.
@@ -237,6 +238,26 @@ enum SelfTest {
         check("klaster status menyisakan ruang untuk konten kiri",
               collapsedSize.width - statusWithPercent - 6 >= timerWidth,
               "sisa \(Int(collapsedSize.width - statusWithPercent - 6)) vs timer \(Int(timerWidth)) pt")
+
+        // 13. Jam digital: draft timer dan aturan posisi klaster ikon
+        var draft = TimerDraft()
+        draft.hours = 1; draft.minutes = 30; draft.seconds = 15
+        check("draft timer menghitung total detik", draft.totalSeconds == 5415,
+              "\(draft.totalSeconds) detik")
+        draft.bump(.minutes, by: 40)
+        check("menit membungkus di 60", draft.minutes == 10, "menit jadi \(draft.minutes)")
+        draft.minutes = 0; draft.bump(.minutes, by: -1)
+        check("menit turun dari 0 membungkus ke 59", draft.minutes == 59, "menit jadi \(draft.minutes)")
+        draft.hours = 0; draft.minutes = 0; draft.seconds = 0
+        check("draft nol dikenali (tombol Mulai nonaktif)", draft.isZero)
+
+        let idleState = IslandState()
+        check("idle: konten kiri kosong → klaster ikon di tengah",
+              !idleState.hasCollapsedLeading)
+        idleState.activity = Activity(label: "Uji", total: 60, remaining: 60, startedAt: Date())
+        check("timer aktif: konten kiri terisi → klaster bergeser",
+              idleState.hasCollapsedLeading)
+        idleState.activity = nil
 
         print("---")
         print(failures == 0 ? "SEMUA \(checks) PEMERIKSAAN LULUS" : "\(failures) dari \(checks) pemeriksaan GAGAL")

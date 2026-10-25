@@ -160,7 +160,30 @@ struct Activity: Equatable {
     var total: TimeInterval
     var remaining: TimeInterval
     var startedAt: Date
+    /// Saat dijeda, sisa waktu dibekukan di sini (detik).
+    var pausedRemaining: TimeInterval? = nil
+    var isPaused: Bool { pausedRemaining != nil }
     var progress: Double { total > 0 ? max(0, min(1, remaining / total)) : 0 }
+}
+
+/// Isi jam digital di modul Aktivitas sebelum timer dimulai.
+struct TimerDraft: Equatable {
+    var hours = 0
+    var minutes = 5
+    var seconds = 0
+
+    var totalSeconds: Int { hours * 3600 + minutes * 60 + seconds }
+    var isZero: Bool { totalSeconds == 0 }
+
+    mutating func bump(_ unit: Unit, by delta: Int) {
+        switch unit {
+        case .hours: hours = ((hours + delta) % 24 + 24) % 24
+        case .minutes: minutes = ((minutes + delta) % 60 + 60) % 60
+        case .seconds: seconds = ((seconds + delta) % 60 + 60) % 60
+        }
+    }
+
+    enum Unit { case hours, minutes, seconds }
 }
 
 enum HUDKind: Equatable { case volume, mute, battery, charging, onAC }
@@ -211,6 +234,16 @@ final class IslandState: ObservableObject {
         didSet { onLayoutChange?(true) }
     }
     @Published var hud: HUDState?
+    /// Isi jam digital modul Aktivitas (jam/menit/detik) sebelum dimulai.
+    @Published var timerDraft = TimerDraft()
+
+    /// Ada konten di zona kiri pill? Kalau tidak, klaster status kembali ke tengah.
+    var hasCollapsedLeading: Bool {
+        if activity != nil { return true }
+        if settings.showNowPlaying && nowPlaying.known { return true }
+        if let item = shelfItems.first, Date().timeIntervalSince(item.addedAt) < 300 { return true }
+        return false
+    }
 
     var onLayoutChange: ((Bool) -> Void)?
     private var hudToken = 0
@@ -277,6 +310,8 @@ final class IslandState: ObservableObject {
             "availableModules": availableModules.map { $0.rawValue },
             "hud": hud.map { ["kind": "\($0.kind)", "value": Double($0.value)] } as Any,
             "hasActivity": activity != nil,
+            "activityPaused": activity?.isPaused ?? false,
+            "activityRemaining": activity.map { Int($0.pausedRemaining ?? max(0, $0.startedAt.addingTimeInterval($0.total).timeIntervalSinceNow)) } ?? -1,
             "nowPlayingKnown": nowPlaying.known,
             "nowPlayingTitle": nowPlaying.title,
             "volumeAvailable": volume.available,

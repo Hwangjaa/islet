@@ -61,6 +61,34 @@ PLIST
 
 plutil -lint "$APP/Contents/Info.plist"
 
+# Ikon aplikasi: dari assets/logo-islet.png (kalau ada) → AppIcon.icns
+ICON_SRC="$ROOT/assets/logo-islet.png"
+if [ -f "$ICON_SRC" ]; then
+  echo "== membuat AppIcon.icns dari assets/logo-islet.png =="
+  ICONSET="$ROOT/dist/AppIcon.iconset"
+  rm -rf "$ICONSET"; mkdir -p "$ICONSET"
+  for size in 16 32 64 128 256 512; do
+    sips -z $size $size "$ICON_SRC" --out "$ICONSET/icon_${size}x${size}.png" >/dev/null 2>&1
+  done
+  # varian @2x untuk ukuran titik (pt) yang sesuai
+  cp "$ICONSET/icon_32x32.png"   "$ICONSET/icon_16x16@2x.png"   2>/dev/null || true
+  cp "$ICONSET/icon_64x64.png"   "$ICONSET/icon_32x32@2x.png"   2>/dev/null || true
+  cp "$ICONSET/icon_256x256.png" "$ICONSET/icon_128x128@2x.png" 2>/dev/null || true
+  cp "$ICONSET/icon_512x512.png" "$ICONSET/icon_256x256@2x.png" 2>/dev/null || true
+  sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET/icon_512x512@2x.png" >/dev/null 2>&1
+  rm -f "$ICONSET/icon_64x64.png"
+  if iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns" 2>/dev/null; then
+    /usr/libexec/PlistBuddy -c "Add :CFBundleIconFile string AppIcon" "$APP/Contents/Info.plist" 2>/dev/null \
+      || /usr/libexec/PlistBuddy -c "Set :CFBundleIconFile AppIcon" "$APP/Contents/Info.plist"
+    echo "   ikon terpasang: $(du -h "$APP/Contents/Resources/AppIcon.icns" | awk '{print $1}')"
+  else
+    echo "   PERINGATAN: iconutil gagal, bundel tanpa ikon"
+  fi
+  rm -rf "$ICONSET"
+else
+  echo "== tanpa ikon (assets/logo-islet.png tidak ada) =="
+fi
+
 echo "== menandatangani (ad-hoc) =="
 codesign --force --deep --sign - "$APP" 2>&1 | tail -3
 codesign -dv "$APP" 2>&1 | head -4

@@ -51,7 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             toggleMute: { [weak self] in self?.volumeMonitor.toggleMute() },
             cycleModule: { [weak self] in self?.state.cycleModule() },
             openSettings: { [weak self] in self?.showSettings() },
-            startActivity: { [weak self] minutes in self?.startActivity(minutes: minutes) },
+            startActivity: { [weak self] seconds in self?.startActivity(seconds: seconds) },
+            pauseActivity: { [weak self] in self?.pauseActivity() },
+            resumeActivity: { [weak self] in self?.resumeActivity() },
             stopActivity: { [weak self] in self?.state.activity = nil },
             revealShelf: { [weak self] in self?.openShelfFolder() },
             removeShelf: { [weak self] item in
@@ -136,19 +138,49 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func startTimerFromMenu(_ sender: NSMenuItem) {
-        startActivity(minutes: sender.tag)
+        startActivity(seconds: sender.tag * 60)
     }
 
     @objc private func stopTimer() {
         state.activity = nil
     }
 
-    private func startActivity(minutes: Int) {
-        let total = TimeInterval(minutes * 60)
-        state.activity = Activity(label: "\(minutes) menit", total: total, remaining: total, startedAt: Date())
+    private func startActivity(seconds: Int) {
+        let total = TimeInterval(max(1, seconds))
+        state.activity = Activity(label: clockLabel(total), total: total,
+                                  remaining: total, startedAt: Date())
         state.isExpanded = true
         layout(animated: true)
         SoundPlayer.shared.play(.activityStart)
+    }
+
+    /// Bekukan sisa waktu; TimelineView berhenti menghitung karena `pausedRemaining` terisi.
+    private func pauseActivity() {
+        guard var activity = state.activity, !activity.isPaused else { return }
+        activity.pausedRemaining = remaining(of: activity)
+        state.activity = activity
+    }
+
+    private func resumeActivity() {
+        guard var activity = state.activity, let frozen = activity.pausedRemaining else { return }
+        activity.startedAt = Date()
+        activity.total = max(frozen, 1)
+        activity.remaining = frozen
+        activity.pausedRemaining = nil
+        state.activity = activity
+    }
+
+    private func remaining(of activity: Activity) -> TimeInterval {
+        max(0, activity.startedAt.addingTimeInterval(activity.total).timeIntervalSinceNow)
+    }
+
+    /// Label ringkas untuk menu/pill: "5 menit", "1 jam 30 menit", "45 detik".
+    private func clockLabel(_ total: TimeInterval) -> String {
+        let s = Int(total)
+        let h = s / 3600, m = (s % 3600) / 60, sec = s % 60
+        if h > 0 { return m > 0 ? "\(h) jam \(m) menit" : "\(h) jam" }
+        if m > 0 { return sec > 0 ? "\(m) menit \(sec) detik" : "\(m) menit" }
+        return "\(sec) detik"
     }
 
     @objc func showSettings() {
@@ -389,7 +421,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "previous":
                 self.state.module = self.state.previousModule()
             case "activity":
-                self.startActivity(minutes: (note.userInfo?["minutes"] as? Int) ?? 1)
+                self.startActivity(seconds: ((note.userInfo?["minutes"] as? Int) ?? 1) * 60)
+            case "activityPause":
+                self.pauseActivity()
+            case "activityResume":
+                self.resumeActivity()
             case "activityStop":
                 self.state.activity = nil
             case "hudVolume":

@@ -26,7 +26,23 @@ tombol `<` `>` di footer.
 - macOS 14 atau lebih baru (diuji di macOS 27.0.1, MacBook Air M5 15")
 - Swift 5.9+ / toolchain SwiftPM (diuji dengan Swift 6.4, language mode 5)
 
-## Build & jalankan
+## Unduh & pasang (tanpa build)
+
+1. Buka [Releases](https://github.com/Hwangjaa/islet/releases) → unduh `Islet-<versi>.dmg`
+2. Buka DMG, tarik **Islet** ke folder **Applications**
+3. Jalankan dari Applications
+
+Build ini **ad-hoc signed** (belum notarized Apple), jadi saat pertama dibuka macOS bisa menolak
+dengan pesan "cannot be opened because the developer cannot be verified". Pilih salah satu:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Islet.app   # sekali saja
+```
+
+atau: klik kanan `Islet.app` → **Open** → **Open** lagi.
+
+## Build & jalankan dari sumber
+
 
 ```bash
 git clone <url-repo-ini> islet && cd islet
@@ -34,10 +50,13 @@ swift build                       # build debug
 .build/debug/Islet --selftest     # 47 pemeriksaan mandiri, tanpa GUI
 ./scripts/make_app.sh release     # rakit bundel .app (ad-hoc signed)
 open dist/Islet.app
+./scripts/make_dmg.sh 1.0.0       # rakit dist/Islet-1.0.0.dmg untuk Release
 ```
 
-`make_app.sh` menghasilkan `dist/Islet.app` dengan bundle id `com.rafael.islet`. Untuk build
-sendiri, ganti `CFBundleIdentifier` di skrip bila perlu.
+`make_app.sh` menghasilkan `dist/Islet.app` dengan bundle id `com.rafael.islet`. Versi diambil dari
+git tag terdekat (`v1.0.0` → `1.0.0`), bisa dipaksa dengan `VERSION=1.2.3 ./scripts/make_app.sh`.
+`make_dmg.sh` membuat DMG berisi `Islet.app` + symlink `/Applications`, lalu memverifikasinya dengan
+mount read-only dan mencetak sha256.
 
 ## Izin macOS
 

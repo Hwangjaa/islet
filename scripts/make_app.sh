@@ -1,11 +1,16 @@
 #!/bin/bash
 # Build Islet dan rakit menjadi .app bundle lokal (ad-hoc signed).
-# Bangun di dalam ~/Projects/alcove-analysis/Islet, hasil di ./dist/Islet.app
+# Versi diambil dari git tag terdekat (v1.2.3 → 1.2.3); bisa dioverride lewat env VERSION.
+# Pemakaian: ./scripts/make_app.sh [debug|release]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 APP="$ROOT/dist/Islet.app"
 CONF="${1:-release}"
+
+VERSION="${VERSION:-$(git -C "$ROOT" describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || true)}"
+VERSION="${VERSION:-0.0.0-dev}"
+BUILD="${BUILD:-$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || echo 1)}"
 
 cd "$ROOT"
 echo "== swift build -c $CONF =="
@@ -14,12 +19,12 @@ swift build -c "$CONF"
 BIN="$ROOT/.build/$CONF/Islet"
 [ -x "$BIN" ] || { echo "binary tidak ditemukan: $BIN"; exit 1; }
 
-echo "== merakit bundle =="
+echo "== merakit bundle (versi $VERSION, build $BUILD) =="
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN" "$APP/Contents/MacOS/Islet"
 
-cat > "$APP/Contents/Info.plist" <<'PLIST'
+cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -31,8 +36,8 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleName</key><string>Islet</string>
     <key>CFBundleDisplayName</key><string>Islet</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>CFBundleShortVersionString</key><string>1.0</string>
-    <key>CFBundleVersion</key><string>1</string>
+    <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+    <key>CFBundleVersion</key><string>${BUILD}</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>LSUIElement</key><true/>

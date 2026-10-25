@@ -223,6 +223,21 @@ enum SelfTest {
         let wifi = CWWiFiClient.shared().interface()?.powerOn()
         check("status Wi-Fi terbaca", wifi != nil, wifi.map { "powerOn=\($0)" } ?? "nil")
 
+        // 13. Anggaran lebar pill: timer + klaster status tidak boleh bertabrakan
+        let collapsedSize = IslandGeometry.size(for: .collapsed, settings: settings)
+        let timerFont = NSFont.systemFont(ofSize: 10.5, weight: .semibold)
+        let timerText = ("88:88" as NSString).size(withAttributes: [.font: timerFont]).width
+        let timerWidth = 9 + 5 + timerText + 5 + 18            // ikon + jeda + teks + jeda + bar
+        let statusIconOnly = 12 + 4 + 9 + 4 + 9.5              // Wi-Fi + Bluetooth + ikon baterai
+        let statusWithPercent = statusIconOnly + 3 + 22        // + "100%" saat cas
+        let needed = timerWidth + 6 + max(statusWithPercent, statusIconOnly) + 4
+        check("timer + status muat dalam pill (tanpa menabrak)",
+              needed <= collapsedSize.width,
+              "butuh \(Int(needed)) dari \(Int(collapsedSize.width)) pt")
+        check("klaster status menyisakan ruang untuk konten kiri",
+              collapsedSize.width - statusWithPercent - 6 >= timerWidth,
+              "sisa \(Int(collapsedSize.width - statusWithPercent - 6)) vs timer \(Int(timerWidth)) pt")
+
         print("---")
         print(failures == 0 ? "SEMUA \(checks) PEMERIKSAAN LULUS" : "\(failures) dari \(checks) pemeriksaan GAGAL")
         return Int32(failures)

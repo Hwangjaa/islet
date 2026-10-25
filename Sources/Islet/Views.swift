@@ -108,43 +108,54 @@ struct IslandView: View {
     // MARK: Collapsed
 
     private var collapsed: some View {
-        ZStack {
-            // Tiga ikon status (Wi-Fi, Bluetooth, baterai) selalu di tengah pill.
-            HStack(spacing: 6) {
-                connectivityIcons
-                if state.settings.showBattery && state.battery.available {
-                    batteryBadge
-                }
-            }
-            // Konten kiri (media/timer/tangkapan) menempel kiri, lebarnya dibatasi
-            // supaya tidak menabrak kelompok tengah.
-            HStack(spacing: 0) {
-                collapsedLeading
-                    .frame(maxWidth: 92, alignment: .leading)
-                Spacer(minLength: 0)
+        // Satu baris, tiga zona, tanpa ZStack: elemen tidak mungkin bertumpuk.
+        // [konten kiri fleksibel] [spacer] [klaster status lebar tetap]
+        HStack(spacing: 0) {
+            collapsedLeading
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .layoutPriority(1)
+            Spacer(minLength: 6)
+            statusCluster
+                .fixedSize()
+                .layoutPriority(2)
+        }
+        .padding(.horizontal, 2)
+    }
+
+    /// Klaster status di kanan pill: Wi-Fi, Bluetooth, baterai. Lebarnya tetap dan
+    /// dipisahkan dari konten kiri oleh HStack, jadi tidak bisa saling menabrak.
+    private var statusCluster: some View {
+        HStack(spacing: 4) {
+            connectivityIcons
+            if state.settings.showBattery && state.battery.available {
+                batteryBadge
             }
         }
     }
 
-    /// Ikon Wi-Fi & Bluetooth di tengah pill (dicoret saat tidak aktif).
+    /// Ikon Wi-Fi & Bluetooth (dicoret saat tidak aktif). Ukuran kecil supaya hemat ruang
+    /// di pill yang sempit.
     private var connectivityIcons: some View {
-        HStack(spacing: 5) {
+        HStack(spacing: 4) {
             Image(systemName: state.connectivity.wifi ? "wifi" : "wifi.slash")
-                .font(.system(size: 9.5, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold))
+                .frame(width: 12)
                 .foregroundStyle(state.connectivity.wifi ? Color.white.opacity(0.88)
                                                          : Color.white.opacity(0.35))
 
             ZStack {
                 BluetoothGlyph()
-                    .stroke(style: StrokeStyle(lineWidth: 1.25, lineCap: .round, lineJoin: .round))
-                    .frame(width: 8, height: 11)
+                    .stroke(style: StrokeStyle(lineWidth: 1.2, lineCap: .round, lineJoin: .round))
+                    .frame(width: 7.5, height: 10)
                 if state.connectivity.bluetoothKnown && !state.connectivity.bluetooth {
                     Rectangle()
                         .fill(Color.white.opacity(0.7))
-                        .frame(width: 12, height: 1.2)
+                        .frame(width: 11, height: 1.1)
                         .rotationEffect(.degrees(-45))
                 }
             }
+            .frame(width: 9)
             .foregroundStyle(state.connectivity.bluetooth ? Color.blue.opacity(0.95)
                                                           : Color.white.opacity(0.35))
         }
@@ -154,13 +165,13 @@ struct IslandView: View {
     @ViewBuilder
     private var collapsedLeading: some View {
         if let activity = state.activity {
-            HStack(spacing: 6) {
+            HStack(spacing: 5) {
                 Image(systemName: "timer")
-                    .font(.system(size: 10, weight: .semibold)).foregroundStyle(.orange)
+                    .font(.system(size: 9, weight: .semibold)).foregroundStyle(.orange)
                 Text(timeString(remaining(of: activity)))
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: 10.5, weight: .semibold, design: .rounded))
                     .foregroundStyle(.white).monospacedDigit()
-                MiniBar(progress: activity.progress, tint: .orange, width: 30)
+                MiniBar(progress: activity.progress, tint: .orange, width: 18)
             }
         } else if state.settings.showNowPlaying && state.nowPlaying.known {
             HStack(spacing: 6) {
@@ -190,13 +201,21 @@ struct IslandView: View {
     }
 
     private var batteryBadge: some View {
-        HStack(spacing: 4) {
-            Image(systemName: batterySymbol).font(.system(size: 10, weight: .semibold))
-            Text("\(state.battery.percent)%")
-                .font(.system(size: 10, weight: .medium, design: .rounded)).monospacedDigit()
+        // Minimalis: hanya ikon. Angka persen muncul saat penting (sedang cas / baterai lemah).
+        HStack(spacing: 3) {
+            Image(systemName: batterySymbol).font(.system(size: 9.5, weight: .semibold))
+            if showBatteryPercent {
+                Text("\(state.battery.percent)%")
+                    .font(.system(size: 9.5, weight: .medium, design: .rounded)).monospacedDigit()
+            }
         }
         .foregroundStyle(state.battery.charging ? .green
                          : (state.battery.percent <= 20 ? .red : .white.opacity(0.75)))
+    }
+
+    /// Angka persen hanya ditampilkan saat memang perlu dilihat.
+    private var showBatteryPercent: Bool {
+        state.battery.charging || state.battery.onAC || state.battery.percent <= 20
     }
 
     private var batterySymbol: String {

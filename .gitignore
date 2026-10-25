@@ -1,0 +1,22 @@
+# Build
+.build/
+.swiftpm/
+Package.resolved
+
+# Bundel aplikasi hasil rakit (dibuat ulang oleh scripts/make_app.sh)
+dist/
+*.app
+*.dmg
+
+# macOS
+.DS_Store
+._*
+
+# Berkas debug/log lokal
+*.log
+/tmp/
+
+# Xcode (kalau project dibuka lewat Xcode)
+*.xcodeproj/
+*.xcworkspace/
+xcuserdata/

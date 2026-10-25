@@ -1,0 +1,42 @@
+#!/bin/bash
+# islet-notify — kirim notifikasi ke Islet (masuk ke island dengan animasi Dynamic Island).
+# Pemakaian:
+#   islet-notify "Judul" ["Isi pesan"] [--source "Nama"] [--symbol bell.fill]
+# Tanpa argumen: contoh notifikasi.
+set -euo pipefail
+
+TITLE="${1:-Halo dari islet-notify}"
+BODY="${2:-}"
+SOURCE="Terminal"
+SYMBOL="bell.fill"
+
+shift $(( $# > 2 ? 2 : $# )) || true
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --source) SOURCE="${2:-$SOURCE}"; shift 2 ;;
+    --symbol) SYMBOL="${2:-$SYMBOL}"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+python3 - "$TITLE" "$BODY" "$SOURCE" "$SYMBOL" <<'PY'
+import json, subprocess, sys
+
+title, body, source, symbol = sys.argv[1:5]
+script = f'''
+ObjC.import("Foundation");
+const dc = $.NSDistributedNotificationCenter.defaultCenter;
+const info = $.NSMutableDictionary.alloc.init;
+info.setObjectForKey($({json.dumps(title)}), $("title"));
+info.setObjectForKey($({json.dumps(body)}), $("body"));
+info.setObjectForKey($({json.dumps(source)}), $("source"));
+info.setObjectForKey($({json.dumps(symbol)}), $("symbol"));
+dc.postNotificationNameObjectUserInfoDeliverImmediately($("com.rafael.islet.notify"), $(), info, true);
+'''
+result = subprocess.run(["osascript", "-l", "JavaScript", "-e", script],
+                        capture_output=True, text=True)
+if result.returncode != 0:
+    print("gagal mengirim:", result.stderr.strip())
+    sys.exit(result.returncode)
+print(f"terkirim → Islet: [{source}] {title}" + (f" — {body}" if body else ""))
+PY

@@ -259,6 +259,20 @@ enum SelfTest {
               idleState.hasCollapsedLeading)
         idleState.activity = nil
 
+        // 14. Ikon indikator footer: semua simbol harus ada di SF Symbols
+        var missing: [String] = []
+        for module in IslandModule.allCases {
+            if NSImage(systemSymbolName: module.footerSymbol, accessibilityDescription: nil) == nil {
+                missing.append("\(module.rawValue):\(module.footerSymbol)")
+            }
+        }
+        check("semua ikon footer tersedia di SF Symbols", missing.isEmpty,
+              missing.isEmpty ? "\(IslandModule.allCases.count) modul" : missing.joined(separator: ", "))
+        let footerNeed = CGFloat(IslandModule.allCases.count) * (IslandLayout.moduleDotSize + IslandLayout.moduleDotPadding * 2)
+        check("ikon footer tetap satu sel per modul (posisi tidak bergeser)",
+              footerNeed <= IslandGeometry.size(for: .expanded, settings: settings).width,
+              "butuh \(Int(footerNeed)) pt")
+
         print("---")
         print(failures == 0 ? "SEMUA \(checks) PEMERIKSAAN LULUS" : "\(failures) dari \(checks) pemeriksaan GAGAL")
         return Int32(failures)

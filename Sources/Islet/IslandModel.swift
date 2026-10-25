@@ -20,6 +20,20 @@ enum IslandModule: String, CaseIterable, Identifiable {
         }
     }
 
+    /// Ikon untuk indikator modul di footer. Dipisah dari `symbol` supaya ikon header
+    /// tidak ikut berubah.
+    var footerSymbol: String {
+        switch self {
+        case .nowPlaying: return "music.note"
+        case .shelf: return "camera.viewfinder"
+        case .notifications: return "bell.fill"
+        case .volume: return "airplayaudio"
+        case .battery: return "battery.75"
+        case .calendar: return "calendar"
+        case .activity: return "timer"
+        }
+    }
+
     var symbol: String {
         switch self {
         case .nowPlaying: return "music.note"

@@ -777,8 +777,10 @@ struct IslandView: View {
                 Button {
                     state.module = module
                 } label: {
-                    Circle()
-                        .fill(module == state.module ? Color.white.opacity(0.95) : Color.white.opacity(0.28))
+                    Image(systemName: module.footerSymbol)
+                        .font(.system(size: 9, weight: module == state.module ? .semibold : .regular))
+                        .foregroundStyle(module == state.module
+                                         ? Color.white.opacity(0.95) : Color.white.opacity(0.30))
                         .frame(width: IslandLayout.moduleDotSize, height: IslandLayout.moduleDotSize)
                         .padding(IslandLayout.moduleDotPadding)
                         .contentShape(Rectangle())
